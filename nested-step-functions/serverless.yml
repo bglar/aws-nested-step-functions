@@ -1,0 +1,86 @@
+org: bglar
+app: nested-sfn
+service: nested-step-function
+
+plugins:
+  - serverless-step-functions
+
+provider:
+  name: aws
+  runtime: python3.6
+  stage: devbryan
+  region: us-west-2
+  timeout: 300
+  memorySize: 128
+  # iamRoleStatements:
+  #   - Effect: Allow
+  #     Action:
+  #       - 'lambda:InvokeFunction'
+  #       - 'lambda:InvokeAsync'
+  #     Resource:
+  #       - '*'
+
+functions:
+  getPersonalData:
+    handler: handler.get_personal_data
+
+  getGender:
+    handler: handler.get_gender
+
+stepFunctions:
+  stateMachines:
+    ParentStateMachine:
+      tags:
+        Owner: BrianGlar
+      definition:
+        Comment: "The first step function identified as the parent"
+        StartAt: PersonalData
+        States:
+          PersonalData:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [getPersonalData, Arn]
+            ResultPath: $.personal_data
+            Next: PersonalDataHasDob
+          PersonalDataHasDob:
+            Type: Choice
+            Choices:
+              - Variable: "$.personal_data.dob"
+                StringEquals: ""
+                Next: Done
+            Default: InvokeChild
+          InvokeChild:
+            Type: Task
+            Resource: "arn:aws:states:::states:startExecution.sync"
+            Parameters:
+              StateMachineArn:
+                Ref: ChildStateMachineStepFunctionsStateMachine
+              Input:
+                AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$: "$$.Execution.Id"
+                AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_INPUT.$: "$.personal_data"
+            ResultPath: $.gender
+            Next: Done
+          Done:
+            Type: Pass
+            End: True
+
+    ChildStateMachine:
+      tags:
+        Owner: BrianGlar
+      definition:
+        Comment: "The second step function identified as the child"
+        StartAt: GetGender
+        States:
+          GetGender:
+            Type: Task
+            Resource:
+              Fn::GetAtt: [getGender, Arn]
+            ResultPath: $.gender
+            Next: DummyDelay
+          DummyDelay:
+            Type: Wait
+            Seconds: 120  # Delay for 2mins. Not a necessary step but doing it because I can.
+            Next: Done
+          Done:
+            Type: Pass
+            End: True

@@ -1,0 +1,11 @@
+{
+  "name": "aws-nested-step-functions",
+  "version": "1.0.0",
+  "dependencies": {
+    "serverless": "^1.63.0",
+    "serverless-step-functions": "^2.17.1"
+  },
+  "devDependencies": {},
+  "author": "brian glar (bglar)",
+  "license": "MIT"
+}
